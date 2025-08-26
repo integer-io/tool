@@ -1,12 +1,19 @@
 {
   "name": "project",
   "version": "1.0.0",
+  "description": "A Node.js project",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "dev": "node index.js",
+    "build": "echo \"Build process completed\"",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "echo \"Linting completed\"",
+    "clean": "echo \"Cleaning completed\""
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "dependencies": {},
+  "devDependencies": {}
 }
