@@ -1,11 +1,11 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Image, Download, Upload, RotateCw, Crop, Palette, Sliders, Eraser, Key } from "lucide-react";
+import { Image, Download, Upload, RotateCw, Crop, Palette, Eraser, Key, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { User } from "firebase/auth";
 import { useApiKeys } from "@/hooks/useApiKeys";
@@ -83,43 +83,64 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      // Set canvas size
-      canvas.width = img.width;
-      canvas.height = img.height;
+      try {
+        // Calculate canvas size considering rotation
+        let canvasWidth = img.width;
+        let canvasHeight = img.height;
+        
+        if (Math.abs(rotation) === 90 || Math.abs(rotation) === 270) {
+          canvasWidth = img.height;
+          canvasHeight = img.width;
+        }
 
-      // Clear canvas
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
 
-      // Save context state
-      ctx.save();
+        // Clear canvas with white background
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // Apply transformations
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate((rotation * Math.PI) / 180);
-      ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-      ctx.translate(-canvas.width / 2, -canvas.height / 2);
+        // Save context state
+        ctx.save();
 
-      // Apply filters
-      ctx.filter = `
-        brightness(${brightness[0]}%) 
-        contrast(${contrast[0]}%) 
-        saturate(${saturation[0]}%) 
-        blur(${blur[0]}px)
-      `;
+        // Apply transformations
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
 
-      // Draw image
-      ctx.drawImage(img, 0, 0);
+        // Apply filters
+        ctx.filter = `
+          brightness(${brightness[0]}%) 
+          contrast(${contrast[0]}%) 
+          saturate(${saturation[0]}%) 
+          blur(${blur[0]}px)
+        `;
 
-      // Restore context state
-      ctx.restore();
+        // Draw image centered
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+        // Restore context state
+        ctx.restore();
+      } catch (error) {
+        console.error('Error applying filters:', error);
+        toast.error('Failed to apply filters');
+      }
     };
+    
+    img.onerror = () => {
+      toast.error('Failed to load image');
+    };
+    
     img.src = originalImage || selectedImage;
   }, [selectedImage, originalImage, brightness, contrast, saturation, blur, rotation, flipH, flipV]);
 
   // Apply filters whenever values change
-  React.useEffect(() => {
+  useEffect(() => {
     if (selectedImage) {
-      applyFilters();
+      const timeoutId = setTimeout(() => {
+        applyFilters();
+      }, 100);
+      return () => clearTimeout(timeoutId);
     }
   }, [selectedImage, applyFilters]);
 
@@ -128,19 +149,34 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
 
     try {
       const canvas = canvasRef.current;
-      const link = document.createElement('a');
-      link.download = 'edited-image.png';
-      link.href = canvas.toDataURL();
-      link.click();
-      toast.success('Image downloaded successfully!');
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          toast.error('Failed to create image blob');
+          return;
+        }
+        
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = `edited-image-${Date.now()}.png`;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.success('Image downloaded successfully!');
+      }, 'image/png', 1.0);
     } catch (error) {
+      console.error('Download error:', error);
       toast.error('Failed to download image');
     }
   };
 
   const rotateImage = (degrees: number) => {
     if (!handleAuthCheck()) return;
-    setRotation(prev => (prev + degrees) % 360);
+    setRotation(prev => {
+      const newRotation = (prev + degrees) % 360;
+      return newRotation < 0 ? newRotation + 360 : newRotation;
+    });
   };
 
   const flipImage = (direction: 'horizontal' | 'vertical') => {
@@ -155,9 +191,6 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
   const resetImage = () => {
     if (!handleAuthCheck()) return;
     resetFilters();
-    if (originalImage) {
-      setSelectedImage(originalImage);
-    }
     toast.success('Image reset to original');
   };
 
@@ -187,17 +220,21 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
       });
 
       if (!removeBgResponse.ok) {
-        throw new Error(`HTTP error! status: ${removeBgResponse.status}`);
+        const errorText = await removeBgResponse.text();
+        throw new Error(`API Error ${removeBgResponse.status}: ${errorText}`);
       }
 
       const resultBlob = await removeBgResponse.blob();
       const resultUrl = URL.createObjectURL(resultBlob);
+      
+      // Update both selected and original image
       setSelectedImage(resultUrl);
+      setOriginalImage(resultUrl);
       
       toast.success('Background removed successfully!');
     } catch (error) {
       console.error('Background removal error:', error);
-      toast.error('Failed to remove background. Please check your API key.');
+      toast.error('Failed to remove background. Please check your API key and try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -210,16 +247,25 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const size = Math.min(canvas.width, canvas.height);
-    const x = (canvas.width - size) / 2;
-    const y = (canvas.height - size) / 2;
+    try {
+      const size = Math.min(canvas.width, canvas.height);
+      const x = (canvas.width - size) / 2;
+      const y = (canvas.height - size) / 2;
 
-    const imageData = ctx.getImageData(x, y, size, size);
-    canvas.width = size;
-    canvas.height = size;
-    ctx.putImageData(imageData, 0, 0);
+      const imageData = ctx.getImageData(x, y, size, size);
+      
+      // Create new canvas with square dimensions
+      canvas.width = size;
+      canvas.height = size;
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, size, size);
+      ctx.putImageData(imageData, 0, 0);
 
-    toast.success('Image cropped to square');
+      toast.success('Image cropped to square');
+    } catch (error) {
+      console.error('Crop error:', error);
+      toast.error('Failed to crop image');
+    }
   };
 
   const addGrayscale = () => {
@@ -229,18 +275,23 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
+    try {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
 
-    for (let i = 0; i < data.length; i += 4) {
-      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-      data[i] = gray;     // Red
-      data[i + 1] = gray; // Green
-      data[i + 2] = gray; // Blue
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        data[i] = gray;     // Red
+        data[i + 1] = gray; // Green
+        data[i + 2] = gray; // Blue
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      toast.success('Grayscale filter applied');
+    } catch (error) {
+      console.error('Grayscale error:', error);
+      toast.error('Failed to apply grayscale');
     }
-
-    ctx.putImageData(imageData, 0, 0);
-    toast.success('Grayscale filter applied');
   };
 
   const addSepia = () => {
@@ -250,21 +301,26 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
+    try {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
 
-    for (let i = 0; i < data.length; i += 4) {
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
 
-      data[i] = Math.min(255, (r * 0.393) + (g * 0.769) + (b * 0.189));     // Red
-      data[i + 1] = Math.min(255, (r * 0.349) + (g * 0.686) + (b * 0.168)); // Green
-      data[i + 2] = Math.min(255, (r * 0.272) + (g * 0.534) + (b * 0.131)); // Blue
+        data[i] = Math.min(255, (r * 0.393) + (g * 0.769) + (b * 0.189));     // Red
+        data[i + 1] = Math.min(255, (r * 0.349) + (g * 0.686) + (b * 0.168)); // Green
+        data[i + 2] = Math.min(255, (r * 0.272) + (g * 0.534) + (b * 0.131)); // Blue
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      toast.success('Sepia filter applied');
+    } catch (error) {
+      console.error('Sepia error:', error);
+      toast.error('Failed to apply sepia');
     }
-
-    ctx.putImageData(imageData, 0, 0);
-    toast.success('Sepia filter applied');
   };
 
   const invertColors = () => {
@@ -274,17 +330,22 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
+    try {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
 
-    for (let i = 0; i < data.length; i += 4) {
-      data[i] = 255 - data[i];         // Red
-      data[i + 1] = 255 - data[i + 1]; // Green
-      data[i + 2] = 255 - data[i + 2]; // Blue
+      for (let i = 0; i < data.length; i += 4) {
+        data[i] = 255 - data[i];         // Red
+        data[i + 1] = 255 - data[i + 1]; // Green
+        data[i + 2] = 255 - data[i + 2]; // Blue
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      toast.success('Colors inverted');
+    } catch (error) {
+      console.error('Invert error:', error);
+      toast.error('Failed to invert colors');
     }
-
-    ctx.putImageData(imageData, 0, 0);
-    toast.success('Colors inverted');
   };
 
   return (
@@ -304,10 +365,10 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
           <div className="space-y-2">
             <Label htmlFor="removebg-api-key" className="flex items-center gap-2">
               <Key className="h-4 w-4" />
-              Remove.bg API Key (for background removal)
+              Remove.bg API Key (for AI background removal)
               {hasApiKey('removebg') && (
                 <span className="text-xs bg-green-500/20 text-green-600 px-2 py-1 rounded-full">
-                  Saved
+                  ✓ Saved
                 </span>
               )}
             </Label>
@@ -321,7 +382,12 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
             />
             <p className="text-xs text-muted-foreground">
               Get your free API key from{" "}
-              <a href="https://www.remove.bg/api" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+              <a 
+                href="https://www.remove.bg/api" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-primary hover:underline font-semibold"
+              >
                 remove.bg/api
               </a>
               {hasApiKey('removebg') && " • Your API key is saved securely"}
@@ -357,23 +423,23 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label>Original</Label>
-                  <div className="border border-white/20 rounded-lg p-4 bg-white/5">
+                  <div className="border border-white/20 rounded-lg p-4 bg-white/5 min-h-[300px] flex items-center justify-center">
                     <img
                       ref={imageRef}
                       src={originalImage || selectedImage}
                       alt="Original"
-                      className="w-full h-64 object-contain rounded"
+                      className="max-w-full max-h-[280px] object-contain rounded"
                     />
                   </div>
                 </div>
                 
                 <div className="space-y-2">
                   <Label>Edited</Label>
-                  <div className="border border-white/20 rounded-lg p-4 bg-white/5">
+                  <div className="border border-white/20 rounded-lg p-4 bg-white/5 min-h-[300px] flex items-center justify-center">
                     <canvas
                       ref={canvasRef}
-                      className="w-full h-64 object-contain rounded"
-                      style={{ maxWidth: '100%', height: 'auto' }}
+                      className="max-w-full max-h-[280px] object-contain rounded border"
+                      style={{ backgroundColor: 'white' }}
                     />
                   </div>
                 </div>
@@ -400,6 +466,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
                           min={0}
                           step={1}
                           disabled={!user}
+                          className="w-full"
                         />
                       </div>
                       
@@ -412,6 +479,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
                           min={0}
                           step={1}
                           disabled={!user}
+                          className="w-full"
                         />
                       </div>
                     </div>
@@ -426,6 +494,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
                           min={0}
                           step={1}
                           disabled={!user}
+                          className="w-full"
                         />
                       </div>
                       
@@ -438,6 +507,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
                           min={0}
                           step={0.1}
                           disabled={!user}
+                          className="w-full"
                         />
                       </div>
                     </div>
@@ -466,7 +536,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
                     
                     <Button
                       onClick={() => flipImage('horizontal')}
-                      variant="outline"
+                      variant={flipH ? "default" : "outline"}
                       disabled={!user}
                     >
                       Flip H
@@ -474,7 +544,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
                     
                     <Button
                       onClick={() => flipImage('vertical')}
-                      variant="outline"
+                      variant={flipV ? "default" : "outline"}
                       disabled={!user}
                     >
                       Flip V
@@ -482,14 +552,15 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label>Rotation: {rotation}°</Label>
+                    <Label>Custom Rotation: {rotation}°</Label>
                     <Slider
                       value={[rotation]}
                       onValueChange={(value) => setRotation(value[0])}
                       max={360}
-                      min={-360}
+                      min={0}
                       step={1}
                       disabled={!user}
+                      className="w-full"
                     />
                   </div>
                 </TabsContent>
@@ -543,7 +614,11 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
                       className="h-auto p-4"
                     >
                       <div className="text-center">
-                        <Eraser className="h-6 w-6 mx-auto mb-2" />
+                        {isProcessing ? (
+                          <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin" />
+                        ) : (
+                          <Eraser className="h-6 w-6 mx-auto mb-2" />
+                        )}
                         <div className="font-semibold">
                           {isProcessing ? 'Removing...' : 'Remove Background'}
                         </div>
