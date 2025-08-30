@@ -10,6 +10,6 @@
  import { PDFEditor } from "@/components/PDFEditor";
 @@ .. @@
                <TabsContent value="code" className="space-y-6">
--                <CodeEditor user={user} onAuthRequired={() => setAuthModalOpen(true)} />
+                <CodeEditorWithGenerator user={user} onAuthRequired={() => setAuthModalOpen(true)} />
 +                <CodeEditorWithGenerator user={user} onAuthRequired={() => setAuthModalOpen(true)} />
                </TabsContent>
