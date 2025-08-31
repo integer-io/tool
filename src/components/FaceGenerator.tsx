@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Download, Wand2, Lock, History, Key } from "lucide-react";
+import { Sparkles, Download, Wand2, Lock, History, Key, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { User } from "firebase/auth";
 import { collection, addDoc, query, where, orderBy, getDocs } from "firebase/firestore";
@@ -41,7 +41,7 @@ export const FaceGenerator = ({ user, onAuthRequired }: FaceGeneratorProps) => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const { getApiKey, setApiKey, hasApiKey } = useApiKeys();
 
-  const apiKey = getApiKey('runware');
+  const apiKey = getApiKey('huggingface');
 
   const saveToHistory = async (imageData: GeneratedImage) => {
     if (!user) return;
@@ -101,70 +101,67 @@ export const FaceGenerator = ({ user, onAuthRequired }: FaceGeneratorProps) => {
     }
 
     if (!apiKey.trim()) {
-      toast.error("Please enter your Runware API key");
+      toast.error("Please enter your Hugging Face API key");
       return;
     }
 
     if (!prompt.trim()) {
-      toast.error("Please enter a description for the face");
+      toast.error("Please enter a description for the image");
       return;
     }
 
     setIsGenerating(true);
     
     try {
-      const response = await fetch('https://api.runware.ai/v1', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify([
-          {
-            taskType: "authentication",
-            apiKey: apiKey
+      const response = await fetch(
+        "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
           },
-          {
-            taskType: "imageInference",
-            taskUUID: crypto.randomUUID(),
-            positivePrompt: prompt,
-            width: 512,
-            height: 512,
-            model: "runware:100@1",
-            numberResults: 1,
-            outputFormat: "WEBP",
-            CFGScale: 1,
-            scheduler: "FlowMatchEulerDiscreteScheduler"
-          }
-        ])
-      });
+          method: "POST",
+          body: JSON.stringify({
+            inputs: prompt,
+            parameters: {
+              num_inference_steps: 20,
+              guidance_scale: 7.5,
+              width: 512,
+              height: 512
+            }
+          }),
+        }
+      );
 
-      const data = await response.json();
-      
-      if (data.error || data.errors) {
-        throw new Error(data.errorMessage || data.errors?.[0]?.message || "Generation failed");
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Invalid API key. Please check your Hugging Face token.");
+        } else if (response.status === 503) {
+          throw new Error("Model is loading. Please wait a moment and try again.");
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const imageResult = data.data?.find((item: any) => item.taskType === "imageInference");
+      const imageBlob = await response.blob();
+      const imageURL = URL.createObjectURL(imageBlob);
       
-      if (imageResult && imageResult.imageURL) {
-        const timestamp = new Date();
-        const imageData: GeneratedImage = {
-          ...imageResult,
-          timestamp
-        };
-        
-        setGeneratedImage(imageData);
-        
-        // Save to history
-        await saveToHistory(imageData);
-        
-        toast.success("Face generated successfully!");
-      } else {
-        throw new Error("No image was generated");
-      }
+      const timestamp = new Date();
+      const imageData: GeneratedImage = {
+        imageURL,
+        positivePrompt: prompt,
+        seed: Math.floor(Math.random() * 1000000),
+        timestamp
+      };
+      
+      setGeneratedImage(imageData);
+      
+      // Save to history
+      await saveToHistory(imageData);
+      
+      toast.success("Image generated successfully!");
     } catch (error) {
       console.error('Generation error:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate face");
+      toast.error(error instanceof Error ? error.message : "Failed to generate image");
     } finally {
       setIsGenerating(false);
     }
@@ -180,7 +177,7 @@ export const FaceGenerator = ({ user, onAuthRequired }: FaceGeneratorProps) => {
       
       const a = document.createElement('a');
       a.href = url;
-      a.download = `face-${generatedImage.seed}.webp`;
+      a.download = `generated-image-${generatedImage.seed}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -207,18 +204,18 @@ export const FaceGenerator = ({ user, onAuthRequired }: FaceGeneratorProps) => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Wand2 className="h-5 w-5 text-primary" />
-              Face Generator
+              AI Image Generator
             </CardTitle>
             <CardDescription>
-              Create AI-generated faces with custom descriptions
+              Create AI-generated images with custom descriptions using Hugging Face
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="api-key" className="flex items-center gap-2">
                 <Key className="h-4 w-4" />
-                Runware API Key
-                {hasApiKey('runware') && (
+                Hugging Face API Token
+                {hasApiKey('huggingface') && (
                   <span className="text-xs bg-green-500/20 text-green-600 px-2 py-1 rounded-full">
                     Saved
                   </span>
@@ -227,25 +224,30 @@ export const FaceGenerator = ({ user, onAuthRequired }: FaceGeneratorProps) => {
               <Input
                 id="api-key"
                 type="password"
-                placeholder={hasApiKey('runware') ? "API key saved (click to change)" : "Enter your API key from runware.ai"}
+                placeholder={hasApiKey('huggingface') ? "API token saved (click to change)" : "Enter your free Hugging Face token"}
                 value={apiKey}
-                onChange={(e) => setApiKey('runware', e.target.value)}
+                onChange={(e) => setApiKey('huggingface', e.target.value)}
                 className="bg-white/50 backdrop-blur border-white/30"
               />
-              <p className="text-xs text-muted-foreground">
-                Get your API key from{" "}
-                <a href="https://runware.ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                  runware.ai
-                </a>
-                {hasApiKey('runware') && " • Your API key is saved securely in your browser"}
-              </p>
+              <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm text-blue-800">
+                  <strong>Get your FREE API token:</strong>
+                  <br />
+                  1. Visit Hugging Face → 2. Sign up free → 3. Go to Settings → Access Tokens → 4. Create new token (Read role)
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer">
+                    Get Free Token <ExternalLink className="h-3 w-3 ml-1" />
+                  </a>
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="prompt">Face Description</Label>
+              <Label htmlFor="prompt">Image Description</Label>
               <Textarea
                 id="prompt"
-                placeholder="Describe the face you want to generate..."
+                placeholder="Describe the image you want to generate..."
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 className="bg-white/50 backdrop-blur border-white/30 min-h-[100px]"
@@ -272,7 +274,7 @@ export const FaceGenerator = ({ user, onAuthRequired }: FaceGeneratorProps) => {
               ) : (
                 <>
                   <Sparkles className="h-4 w-4" />
-                  Generate Face
+                  Generate Image
                 </>
               )}
             </Button>
@@ -294,9 +296,9 @@ export const FaceGenerator = ({ user, onAuthRequired }: FaceGeneratorProps) => {
         {/* Preview Panel */}
         <Card className="bg-gradient-card backdrop-blur-lg border-white/20 shadow-card">
           <CardHeader>
-            <CardTitle>Generated Face</CardTitle>
+            <CardTitle>Generated Image</CardTitle>
             <CardDescription>
-              Your AI-generated face will appear here
+              Your AI-generated image will appear here
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -305,7 +307,7 @@ export const FaceGenerator = ({ user, onAuthRequired }: FaceGeneratorProps) => {
                 <div className="relative group">
                   <img
                     src={generatedImage.imageURL}
-                    alt="Generated face"
+                    alt="Generated image"
                     className="w-full rounded-lg shadow-glow transition-transform duration-300 group-hover:scale-105"
                   />
                   <div className="absolute inset-0 bg-gradient-primary opacity-0 group-hover:opacity-10 rounded-lg transition-opacity duration-300" />
@@ -334,8 +336,8 @@ export const FaceGenerator = ({ user, onAuthRequired }: FaceGeneratorProps) => {
               <div className="flex items-center justify-center h-64 border-2 border-dashed border-muted rounded-lg">
                 <div className="text-center">
                   <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No face generated yet</p>
-                  <p className="text-sm text-muted-foreground">Enter your API key and description to start</p>
+                  <p className="text-muted-foreground">No image generated yet</p>
+                  <p className="text-sm text-muted-foreground">Enter your API token and description to start</p>
                 </div>
               </div>
             )}
@@ -384,7 +386,7 @@ export const FaceGenerator = ({ user, onAuthRequired }: FaceGeneratorProps) => {
                       onClick={() => {
                         const a = document.createElement('a');
                         a.href = item.imageURL;
-                        a.download = `face-${item.seed}.webp`;
+                        a.download = `image-${item.seed}.png`;
                         a.click();
                       }}
                       variant="glass"

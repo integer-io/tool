@@ -210,10 +210,10 @@ export const DocumentEditor = ({ user, onAuthRequired }: DocumentEditorProps) =>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            Document Editor
+            Document Editor (No API Required)
           </CardTitle>
           <CardDescription>
-            Create, edit, and format documents with professional tools
+            Create, edit, and format documents with professional tools - works completely offline
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

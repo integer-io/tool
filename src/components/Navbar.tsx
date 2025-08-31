@@ -15,14 +15,14 @@ export const Navbar = () => {
     <nav className="bg-gradient-card backdrop-blur-lg border-b border-white/20 shadow-card sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
-          {/* Company Logo and Name - Left Side */}
-          <Link to="/" className="flex items-center gap-3 text-2xl md:text-3xl font-bold text-primary">
+          {/* Company Logo and Name - Left Side with proper z-index */}
+          <Link to="/" className="flex items-center gap-3 text-2xl md:text-3xl font-bold text-primary relative z-10">
             <img 
               src="/lovable-uploads/9cdee21b-a567-4d67-8676-460f60cda5b1.png" 
               alt="Integer-io Logo" 
-              className="h-12 w-12 md:h-16 md:w-16 object-contain flex-shrink-0"
+              className="h-12 w-12 md:h-16 md:w-16 object-contain flex-shrink-0 relative z-10"
             />
-            <span className="text-xl md:text-3xl bg-gradient-primary bg-clip-text text-transparent">
+            <span className="text-xl md:text-3xl bg-gradient-primary bg-clip-text text-transparent relative z-10">
               Integer-io
             </span>
           </Link>

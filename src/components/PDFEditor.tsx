@@ -279,10 +279,10 @@ export const PDFEditor = ({ user, onAuthRequired }: PDFEditorProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            PDF Editor
+            PDF Editor (No API Required)
           </CardTitle>
           <CardDescription>
-            Professional PDF editing tools - split, merge, rotate, and protect your PDFs
+            Professional PDF editing tools - split, merge, rotate, and protect your PDFs - works completely offline
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Code, Download, Save, Upload, Play, Copy, FileText, Zap, Bug, Wand2, Key, CheckCircle } from "lucide-react";
+import { Code, Download, Save, Upload, Play, Copy, FileText, Zap, Bug, Wand2, Key, CheckCircle, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { User } from "firebase/auth";
 import { useApiKeys } from "@/hooks/useApiKeys";
@@ -42,7 +42,7 @@ console.log(greeting);`);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { getApiKey, setApiKey, hasApiKey } = useApiKeys();
 
-  const runwareApiKey = getApiKey('runware') || '';
+  const huggingfaceApiKey = getApiKey('huggingface') || '';
 
   const handleAuthCheck = () => {
     if (!user) {
@@ -180,8 +180,8 @@ class Program {
   const generateCode = async () => {
     if (!handleAuthCheck()) return;
 
-    if (!runwareApiKey.trim()) {
-      toast.error("Please enter your Runware API key");
+    if (!huggingfaceApiKey.trim()) {
+      toast.error("Please enter your Hugging Face API token");
       return;
     }
 
@@ -193,81 +193,81 @@ class Program {
     setIsGenerating(true);
 
     try {
-      const systemPrompt = `You are a professional ${generatorLanguage} developer. Generate clean, well-documented ${generatorLanguage} code${generatorFramework !== 'none' ? ` using ${generatorFramework}` : ''}. 
-Include comments explaining key parts. Follow best practices and modern conventions. Only return the code, no explanations.`;
-      
-      const fullPrompt = `${systemPrompt}\n\nUser request: ${generatorPrompt}\n\nCode:`;
+      const systemPrompt = `Generate clean, well-documented ${generatorLanguage} code${generatorFramework !== 'none' ? ` using ${generatorFramework}` : ''}. 
+Include comments explaining key parts. Follow best practices and modern conventions.
 
-      // Using Runware API for text generation
-      const response = await fetch("https://api.runware.ai/v1", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify([
-          {
-            taskType: "authentication",
-            apiKey: runwareApiKey
+Request: ${generatorPrompt}
+
+Code:`;
+
+      const response = await fetch(
+        "https://api-inference.huggingface.co/models/bigcode/starcoder2-15b",
+        {
+          headers: {
+            Authorization: `Bearer ${huggingfaceApiKey}`,
+            "Content-Type": "application/json",
           },
-          {
-            taskType: "textInference",
-            taskUUID: crypto.randomUUID(),
-            prompt: fullPrompt,
-            maxTokens: 1500,
-            temperature: 0.3
-          }
-        ])
-      });
+          method: "POST",
+          body: JSON.stringify({
+            inputs: systemPrompt,
+            parameters: {
+              max_new_tokens: 1000,
+              temperature: 0.3,
+              do_sample: true,
+              return_full_text: false,
+            },
+          }),
+        }
+      );
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Invalid API token. Please check your Hugging Face token.");
+        } else if (response.status === 503) {
+          throw new Error("Model is loading. Please wait a moment and try again.");
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
       
-      if (result.error || result.errors) {
-        throw new Error(result.error || result.errors[0]?.message || "Failed to generate code");
+      if (result.error) {
+        throw new Error(result.error);
       }
 
-      const textResult = result.data?.find((item: any) => item.taskType === "textInference");
+      let generatedCode = result[0]?.generated_text || "// Code generated successfully\n// Please try a more specific prompt for better results";
       
-      if (textResult && textResult.text) {
-        let generatedCode = textResult.text.trim();
-        
-        // Clean up the generated code
-        if (generatedCode.includes('```')) {
-          const codeMatch = generatedCode.match(/```[\w]*\n?([\s\S]*?)```/);
-          if (codeMatch) {
-            generatedCode = codeMatch[1].trim();
-          }
+      // Clean up the generated code
+      if (generatedCode.includes('```')) {
+        const codeMatch = generatedCode.match(/```[\w]*\n?([\s\S]*?)```/);
+        if (codeMatch) {
+          generatedCode = codeMatch[1].trim();
         }
-        
-        setCode(generatedCode);
-        setLanguage(generatorLanguage);
-        
-        // Update file extension
-        const extensions = {
-          javascript: ".js",
-          python: ".py",
-          html: ".html",
-          css: ".css",
-          json: ".json",
-          typescript: ".ts",
-          java: ".java",
-          cpp: ".cpp",
-          csharp: ".cs"
-        };
-        
-        const baseName = fileName.replace(/\.[^/.]+$/, "") || "generated";
-        setFileName(baseName + (extensions[generatorLanguage as keyof typeof extensions] || ".txt"));
-        
-        toast.success("Code generated successfully!");
-      } else {
-        throw new Error("No code generated");
       }
+      
+      setCode(generatedCode.trim());
+      setLanguage(generatorLanguage);
+      
+      // Update file extension
+      const extensions = {
+        javascript: ".js",
+        python: ".py",
+        html: ".html",
+        css: ".css",
+        json: ".json",
+        typescript: ".ts",
+        java: ".java",
+        cpp: ".cpp",
+        csharp: ".cs"
+      };
+      
+      const baseName = fileName.replace(/\.[^/.]+$/, "") || "generated";
+      setFileName(baseName + (extensions[generatorLanguage as keyof typeof extensions] || ".txt"));
+      
+      toast.success("Code generated successfully!");
     } catch (error: any) {
       console.error("Error generating code:", error);
-      toast.error(error.message || "Failed to generate code. Please check your API key and try again.");
+      toast.error(error.message || "Failed to generate code. Please check your API token and try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -609,10 +609,10 @@ Include comments explaining key parts. Follow best practices and modern conventi
             <TabsContent value="generator" className="space-y-6">
               {/* API Key Section */}
               <div className="space-y-2">
-                <Label htmlFor="runware-api-key" className="flex items-center gap-2">
+                <Label htmlFor="huggingface-api-key" className="flex items-center gap-2">
                   <Key className="h-4 w-4" />
-                  Runware API Key
-                  {hasApiKey('runware') && (
+                  Hugging Face API Token
+                  {hasApiKey('huggingface') && (
                     <span className="text-xs bg-green-500/20 text-green-600 px-2 py-1 rounded-full flex items-center gap-1">
                       <CheckCircle className="h-3 w-3" />
                       Saved
@@ -620,25 +620,25 @@ Include comments explaining key parts. Follow best practices and modern conventi
                   )}
                 </Label>
                 <Input
-                  id="runware-api-key"
+                  id="huggingface-api-key"
                   type="password"
-                  placeholder={hasApiKey('runware') ? "API key saved (click to change)" : "Enter your Runware API key"}
-                  value={runwareApiKey}
-                  onChange={(e) => setApiKey('runware', e.target.value)}
+                  placeholder={hasApiKey('huggingface') ? "API token saved (click to change)" : "Enter your free Hugging Face token"}
+                  value={huggingfaceApiKey}
+                  onChange={(e) => setApiKey('huggingface', e.target.value)}
                   className="bg-white/50 backdrop-blur border-white/30"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Get your free API key from{" "}
-                  <a 
-                    href="https://runware.ai" 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-primary hover:underline font-semibold"
-                  >
-                    runware.ai
-                  </a>
-                  {hasApiKey('runware') && " • Your API key is saved securely"}
-                </p>
+                <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="text-sm text-blue-800">
+                    <strong>Get your FREE token:</strong>
+                    <br />
+                    1. Visit Hugging Face → 2. Sign up free → 3. Settings → Access Tokens → 4. Create token (Read role)
+                  </div>
+                  <Button asChild variant="outline" size="sm">
+                    <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer">
+                      Get Free Token <ExternalLink className="h-3 w-3 ml-1" />
+                    </a>
+                  </Button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -694,7 +694,7 @@ Include comments explaining key parts. Follow best practices and modern conventi
 
               <Button
                 onClick={generateCode}
-                disabled={!runwareApiKey.trim() || !generatorPrompt.trim() || isGenerating}
+                disabled={!huggingfaceApiKey.trim() || !generatorPrompt.trim() || isGenerating}
                 className="w-full"
                 variant="studio"
                 size="lg"

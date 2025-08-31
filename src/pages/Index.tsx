@@ -102,15 +102,15 @@ const Index = () => {
             <Alert className="mb-6 bg-gradient-card backdrop-blur-lg border-white/20">
               <Info className="h-4 w-4" />
               <AlertDescription>
-                <strong>API Keys Required:</strong> To use our AI generators, you'll need API keys from the respective services.
+                <strong>Mixed Requirements:</strong> Some tools work without API keys (PDF tools, Image Editor, Document Editor), while AI generators need free API tokens.
                 <br />
                 <strong>Need help getting started?</strong>{" "}
                 <a href="/help" className="text-primary hover:underline">
                   Visit our Help page
                 </a>{" "}
-                for detailed instructions on how to get your free API keys.
+                for detailed instructions on how to get your free API tokens.
                 <br />
-                All services offer free tiers. Your API keys are stored locally and never shared.
+                All AI services offer free tiers. Your API tokens are stored locally and never shared.
               </AlertDescription>
             </Alert>
 

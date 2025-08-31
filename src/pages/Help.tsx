@@ -41,17 +41,17 @@ const Help = () => {
                   </div>
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      Get your free Runware API key:
+                      Get your free Hugging Face token:
                     </p>
                     <ol className="text-sm space-y-2 list-decimal list-inside">
-                      <li>Visit <a href="https://runware.ai" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">runware.ai</a></li>
+                      <li>Visit <a href="https://huggingface.co" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">huggingface.co</a></li>
                       <li>Create a free account</li>
-                      <li>Go to your dashboard</li>
-                      <li>Generate your API key</li>
+                      <li>Go to Settings → Access Tokens</li>
+                      <li>Create new token (Read role)</li>
                     </ol>
                     <Button asChild variant="glass" size="sm">
-                      <a href="https://runware.ai" target="_blank" rel="noopener noreferrer">
-                        Get API Key <ExternalLink className="h-3 w-3 ml-1" />
+                      <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer">
+                        Get Free Token <ExternalLink className="h-3 w-3 ml-1" />
                       </a>
                     </Button>
                   </div>
@@ -85,7 +85,7 @@ const Help = () => {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <Palette className="h-5 w-5 text-primary" />
-                    <h3 className="text-lg font-semibold">Image Editor</h3>
+                    <h3 className="text-lg font-semibold">Background Remover</h3>
                   </div>
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">
@@ -109,7 +109,7 @@ const Help = () => {
               <Alert>
                 <CheckCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>All APIs offer free tiers!</strong> No credit card required. Your API keys are stored locally and never shared.
+                  <strong>All APIs offer free tiers!</strong> No credit card required. Your API keys are stored locally and never shared. Some tools work without any API keys!
                 </AlertDescription>
               </Alert>
             </CardContent>
@@ -121,14 +121,14 @@ const Help = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Image className="h-5 w-5 text-primary" />
-                  Image Generator
+                  AI Image Generator
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ol className="space-y-3 text-sm list-decimal list-inside">
-                  <li>Enter your Runware API key</li>
+                  <li>Enter your free Hugging Face token</li>
                   <li>Write a detailed image description</li>
-                  <li>Choose dimensions and style</li>
+                  <li>Choose your preferred style</li>
                   <li>Click "Generate Image"</li>
                   <li>Download your image</li>
                 </ol>
@@ -142,13 +142,13 @@ const Help = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Music className="h-5 w-5 text-primary" />
-                  Music & Code
+                  AI Text & Code
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ol className="space-y-3 text-sm list-decimal list-inside">
                   <li>Enter your Hugging Face token</li>
-                  <li>Select genre/language</li>
+                  <li>Select content type/language</li>
                   <li>Describe what you want</li>
                   <li>Click generate</li>
                   <li>Download or copy results</li>
@@ -163,19 +163,19 @@ const Help = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Palette className="h-5 w-5 text-primary" />
-                  Image Editor
+                  Image Editor & PDF Tools
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <ol className="space-y-3 text-sm list-decimal list-inside">
-                  <li>Upload your image</li>
-                  <li>Choose edit type</li>
-                  <li>Enter API key (if needed)</li>
+                  <li>Upload your image or PDF</li>
+                  <li>Choose edit/conversion type</li>
+                  <li>Enter API key (only for background removal)</li>
                   <li>Click process</li>
-                  <li>Download edited image</li>
+                  <li>Download edited file</li>
                 </ol>
                 <p className="text-xs text-muted-foreground">
-                  <strong>Note:</strong> Crop works without API key!
+                  <strong>Note:</strong> Most tools work without API keys!
                 </p>
               </CardContent>
             </Card>

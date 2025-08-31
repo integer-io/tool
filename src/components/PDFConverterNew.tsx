@@ -415,10 +415,10 @@ export const PDFConverter = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-primary" />
-            PDF & Document Converter
+            PDF & Document Converter (No API Required)
           </CardTitle>
           <CardDescription>
-            Convert between PDF and images with enhanced compatibility
+            Convert between PDF and images with enhanced compatibility - works completely offline
           </CardDescription>
         </CardHeader>
         <CardContent>

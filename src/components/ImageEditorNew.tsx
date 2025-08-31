@@ -245,10 +245,10 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Image className="h-5 w-5 text-primary" />
-            Professional Image Editor
+            Professional Image Editor (No API Required)
           </CardTitle>
           <CardDescription>
-            Edit images with filters, transformations, and effects - no API required
+            Edit images with filters, transformations, and effects - works completely offline
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
