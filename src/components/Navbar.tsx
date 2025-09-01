@@ -16,13 +16,13 @@ export const Navbar = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-20">
           {/* Company Logo and Name - Left Side with proper z-index */}
-          <Link to="/" className="flex items-center gap-3 text-2xl md:text-3xl font-bold text-primary relative z-10">
+          <Link to="/" className="navbar-brand flex items-center gap-3 text-2xl md:text-3xl font-bold text-primary">
             <img 
               src="/lovable-uploads/9cdee21b-a567-4d67-8676-460f60cda5b1.png" 
               alt="Integer-io Logo" 
-              className="h-12 w-12 md:h-16 md:w-16 object-contain flex-shrink-0 relative z-10"
+              className="h-12 w-12 md:h-16 md:w-16 object-contain flex-shrink-0"
             />
-            <span className="text-xl md:text-3xl bg-gradient-primary bg-clip-text text-transparent relative z-10">
+            <span className="company-name text-xl md:text-3xl bg-gradient-primary bg-clip-text text-transparent">
               Integer-io
             </span>
           </Link>

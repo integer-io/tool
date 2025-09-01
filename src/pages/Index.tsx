@@ -102,15 +102,15 @@ const Index = () => {
             <Alert className="mb-6 bg-gradient-card backdrop-blur-lg border-white/20">
               <Info className="h-4 w-4" />
               <AlertDescription>
-                <strong>Mixed Requirements:</strong> Some tools work without API keys (PDF tools, Image Editor, Document Editor), while AI generators need free API tokens.
+                <strong>🎯 Tool Requirements:</strong> PDF tools, Image Editor, and Document Editor work completely offline. AI generators need free API tokens (no credit card required).
                 <br />
-                <strong>Need help getting started?</strong>{" "}
+                <strong>🚀 Need help getting started?</strong>{" "}
                 <a href="/help" className="text-primary hover:underline">
                   Visit our Help page
                 </a>{" "}
-                for detailed instructions on how to get your free API tokens.
+                for step-by-step instructions to get your free API tokens in 2 minutes.
                 <br />
-                All AI services offer free tiers. Your API tokens are stored locally and never shared.
+                <strong>🔒 Privacy:</strong> All API tokens are stored locally on your device and never shared with anyone.
               </AlertDescription>
             </Alert>
 

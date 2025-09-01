@@ -46,12 +46,13 @@ const Help = () => {
                     <ol className="text-sm space-y-2 list-decimal list-inside">
                       <li>Visit <a href="https://huggingface.co" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">huggingface.co</a></li>
                       <li>Create a free account</li>
-                      <li>Go to Settings → Access Tokens</li>
-                      <li>Create new token (Read role)</li>
+                      <li>Click your profile → Settings → Access Tokens</li>
+                      <li>Click "New token" → Choose "Read" role → Create</li>
+                      <li>Copy the token and paste it in our tools</li>
                     </ol>
                     <Button asChild variant="glass" size="sm">
                       <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer">
-                        Get Free Token <ExternalLink className="h-3 w-3 ml-1" />
+                        🆓 Get Free Token <ExternalLink className="h-3 w-3 ml-1" />
                       </a>
                     </Button>
                   </div>
@@ -70,12 +71,13 @@ const Help = () => {
                     <ol className="text-sm space-y-2 list-decimal list-inside">
                       <li>Visit <a href="https://huggingface.co" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">huggingface.co</a></li>
                       <li>Sign up for free</li>
-                      <li>Go to Settings → Access Tokens</li>
-                      <li>Create new token (Read role)</li>
+                      <li>Click your profile → Settings → Access Tokens</li>
+                      <li>Click "New token" → Choose "Read" role → Create</li>
+                      <li>Copy the token and use in our tools</li>
                     </ol>
                     <Button asChild variant="glass" size="sm">
                       <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer">
-                        Get HF Token <ExternalLink className="h-3 w-3 ml-1" />
+                        🆓 Get Free Token <ExternalLink className="h-3 w-3 ml-1" />
                       </a>
                     </Button>
                   </div>
@@ -94,12 +96,13 @@ const Help = () => {
                     <ol className="text-sm space-y-2 list-decimal list-inside">
                       <li>Visit <a href="https://www.remove.bg/api" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">remove.bg/api</a></li>
                       <li>Sign up for free</li>
-                      <li>Go to API dashboard</li>
-                      <li>Copy your API key</li>
+                      <li>Verify email → Go to API dashboard</li>
+                      <li>Copy your free API key (50 images/month)</li>
+                      <li>Paste in our Background Remover tool</li>
                     </ol>
                     <Button asChild variant="glass" size="sm">
                       <a href="https://www.remove.bg/api" target="_blank" rel="noopener noreferrer">
-                        Get API Key <ExternalLink className="h-3 w-3 ml-1" />
+                        🆓 Get Free API Key <ExternalLink className="h-3 w-3 ml-1" />
                       </a>
                     </Button>
                   </div>
@@ -109,7 +112,7 @@ const Help = () => {
               <Alert>
                 <CheckCircle className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>All APIs offer free tiers!</strong> No credit card required. Your API keys are stored locally and never shared. Some tools work without any API keys!
+                  <strong>🎉 All APIs are 100% FREE!</strong> No credit card required. Your API keys are stored securely on your device and never shared. Many tools work completely offline without any API keys!
                 </AlertDescription>
               </Alert>
             </CardContent>
