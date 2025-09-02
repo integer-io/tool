@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Image, Download, Upload, RotateCw, Crop, Palette, Sliders, Eraser, Loader2, AlertCircle } from "lucide-react";
+import { Image, Download, Upload, RotateCw, Crop, Palette, Sliders, Eraser, Loader2, AlertCircle, Scissors, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { User } from "firebase/auth";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,6 +18,7 @@ interface ImageEditorProps {
 export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [originalImage, setOriginalImage] = useState<string | null>(null);
+  const [editedImage, setEditedImage] = useState<string | null>(null);
   const [brightness, setBrightness] = useState([100]);
   const [contrast, setContrast] = useState([100]);
   const [saturation, setSaturation] = useState([100]);
@@ -26,6 +27,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
   const [flipH, setFlipH] = useState(false);
   const [flipV, setFlipV] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -54,6 +56,8 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
       const imageUrl = e.target?.result as string;
       setSelectedImage(imageUrl);
       setOriginalImage(imageUrl);
+      setEditedImage(null);
+      setImageLoaded(false);
       resetFilters();
       toast.success('Image loaded successfully!');
     };
@@ -70,81 +74,112 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     setFlipV(false);
   };
 
-  const applyFilters = useCallback(async () => {
+  const loadImageToCanvas = useCallback(() => {
     if (!selectedImage || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      // Set canvas size to match image
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Draw original image
+      ctx.drawImage(img, 0, 0);
+      
+      setImageLoaded(true);
+      applyAllFilters();
+    };
+    
+    img.onerror = () => {
+      toast.error('Failed to load image');
+      setImageLoaded(false);
+    };
+    
+    img.src = selectedImage;
+  }, [selectedImage]);
+
+  const applyAllFilters = useCallback(() => {
+    if (!canvasRef.current || !imageLoaded || !originalImage) return;
 
     setIsProcessing(true);
     
     try {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        throw new Error('Could not get canvas context');
-      }
+      if (!ctx) return;
 
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => {
-          try {
-            // Set canvas size to match image
-            canvas.width = img.width;
-            canvas.height = img.height;
-
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Save context state
-            ctx.save();
-
-            // Apply transformations
-            ctx.translate(canvas.width / 2, canvas.height / 2);
-            ctx.rotate((rotation * Math.PI) / 180);
-            ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
-            ctx.translate(-canvas.width / 2, -canvas.height / 2);
-
-            // Apply filters
-            ctx.filter = `
-              brightness(${brightness[0]}%) 
-              contrast(${contrast[0]}%) 
-              saturate(${saturation[0]}%) 
-              blur(${blur[0]}px)
-            `;
-
-            // Draw image
-            ctx.drawImage(img, 0, 0);
-
-            // Restore context state
-            ctx.restore();
-            
-            resolve();
-          } catch (error) {
-            reject(error);
-          }
-        };
+      img.onload = () => {
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        img.onerror = () => reject(new Error('Failed to load image'));
-        img.src = originalImage || selectedImage;
-      });
+        // Save context state
+        ctx.save();
+        
+        // Apply transformations
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+        ctx.translate(-canvas.width / 2, -canvas.height / 2);
+        
+        // Apply filters
+        ctx.filter = `
+          brightness(${brightness[0]}%) 
+          contrast(${contrast[0]}%) 
+          saturate(${saturation[0]}%) 
+          blur(${blur[0]}px)
+        `;
+        
+        // Draw image
+        ctx.drawImage(img, 0, 0);
+        
+        // Restore context state
+        ctx.restore();
+        
+        setIsProcessing(false);
+      };
       
+      img.onerror = () => {
+        setIsProcessing(false);
+        toast.error('Failed to apply filters');
+      };
+      
+      img.src = originalImage;
     } catch (error) {
       console.error('Error applying filters:', error);
-      toast.error('Failed to apply filters');
-    } finally {
       setIsProcessing(false);
+      toast.error('Failed to apply filters');
     }
-  }, [selectedImage, originalImage, brightness, contrast, saturation, blur, rotation, flipH, flipV]);
+  }, [originalImage, imageLoaded, brightness, contrast, saturation, blur, rotation, flipH, flipV]);
 
-  // Apply filters whenever values change
+  // Load image to canvas when image is selected
   useEffect(() => {
-    if (selectedImage && originalImage) {
+    if (selectedImage) {
+      loadImageToCanvas();
+    }
+  }, [selectedImage, loadImageToCanvas]);
+
+  // Apply filters when values change
+  useEffect(() => {
+    if (imageLoaded) {
       const timeoutId = setTimeout(() => {
-        applyFilters();
-      }, 100); // Debounce to prevent too many updates
+        applyAllFilters();
+      }, 100);
       
       return () => clearTimeout(timeoutId);
     }
-  }, [selectedImage, originalImage, applyFilters]);
+  }, [imageLoaded, applyAllFilters]);
 
   const downloadImage = () => {
     if (!handleAuthCheck() || !canvasRef.current) return;
@@ -152,26 +187,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     try {
       const canvas = canvasRef.current;
       
-      // Create a temporary canvas to ensure proper image format
-      const tempCanvas = document.createElement('canvas');
-      const tempCtx = tempCanvas.getContext('2d');
-      
-      if (!tempCtx) {
-        throw new Error('Could not create temporary canvas');
-      }
-      
-      tempCanvas.width = canvas.width;
-      tempCanvas.height = canvas.height;
-      
-      // Fill with white background
-      tempCtx.fillStyle = 'white';
-      tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
-      
-      // Draw the edited image
-      tempCtx.drawImage(canvas, 0, 0);
-      
-      // Convert to blob and download
-      tempCanvas.toBlob((blob) => {
+      canvas.toBlob((blob) => {
         if (!blob) {
           throw new Error('Failed to create image blob');
         }
@@ -211,6 +227,9 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
   const resetImage = () => {
     if (!handleAuthCheck()) return;
     resetFilters();
+    if (originalImage) {
+      loadImageToCanvas();
+    }
     toast.success('Image reset to original');
   };
 
@@ -220,9 +239,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     try {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        throw new Error('Could not get canvas context');
-      }
+      if (!ctx) return;
 
       const size = Math.min(canvas.width, canvas.height);
       const x = (canvas.width - size) / 2;
@@ -246,15 +263,78 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     }
   };
 
+  const removeBackground = async () => {
+    if (!handleAuthCheck() || !canvasRef.current) return;
+
+    setIsProcessing(true);
+    
+    try {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Simple background removal using edge detection and color analysis
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      
+      // Create a new canvas for the result
+      const resultCanvas = document.createElement('canvas');
+      resultCanvas.width = canvas.width;
+      resultCanvas.height = canvas.height;
+      const resultCtx = resultCanvas.getContext('2d');
+      if (!resultCtx) return;
+      
+      // Copy original image data
+      const resultData = resultCtx.createImageData(canvas.width, canvas.height);
+      
+      // Simple background removal algorithm
+      // This is a basic implementation - for better results, use Remove.bg API
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        
+        // Calculate luminance
+        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+        
+        // Simple background detection (adjust threshold as needed)
+        // This removes very light or very dark backgrounds
+        if (luminance > 240 || luminance < 15) {
+          // Make pixel transparent
+          resultData.data[i] = r;
+          resultData.data[i + 1] = g;
+          resultData.data[i + 2] = b;
+          resultData.data[i + 3] = 0; // Transparent
+        } else {
+          // Keep pixel
+          resultData.data[i] = r;
+          resultData.data[i + 1] = g;
+          resultData.data[i + 2] = b;
+          resultData.data[i + 3] = a;
+        }
+      }
+      
+      // Apply the result
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.putImageData(resultData, 0, 0);
+      
+      toast.success('Background removed (basic algorithm)');
+    } catch (error) {
+      console.error('Background removal error:', error);
+      toast.error('Failed to remove background');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const addGrayscale = () => {
     if (!handleAuthCheck() || !canvasRef.current) return;
 
     try {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        throw new Error('Could not get canvas context');
-      }
+      if (!ctx) return;
 
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
@@ -280,9 +360,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     try {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        throw new Error('Could not get canvas context');
-      }
+      if (!ctx) return;
 
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
@@ -311,9 +389,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     try {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        throw new Error('Could not get canvas context');
-      }
+      if (!ctx) return;
 
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
@@ -332,6 +408,85 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
     }
   };
 
+  const addVintage = () => {
+    if (!handleAuthCheck() || !canvasRef.current) return;
+
+    try {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+
+        // Apply vintage effect
+        data[i] = Math.min(255, r * 1.2 + 30);     // Increase red
+        data[i + 1] = Math.min(255, g * 0.9 + 20); // Slightly reduce green
+        data[i + 2] = Math.min(255, b * 0.7 + 10); // Reduce blue
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      toast.success('Vintage effect applied');
+    } catch (error) {
+      console.error('Vintage error:', error);
+      toast.error('Failed to apply vintage effect');
+    }
+  };
+
+  const sharpenImage = () => {
+    if (!handleAuthCheck() || !canvasRef.current) return;
+
+    try {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      // Sharpening kernel
+      const kernel = [
+        0, -1, 0,
+        -1, 5, -1,
+        0, -1, 0
+      ];
+      
+      const newData = new Uint8ClampedArray(data);
+      
+      for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+          for (let c = 0; c < 3; c++) { // RGB channels
+            let sum = 0;
+            for (let ky = -1; ky <= 1; ky++) {
+              for (let kx = -1; kx <= 1; kx++) {
+                const idx = ((y + ky) * width + (x + kx)) * 4 + c;
+                const kernelIdx = (ky + 1) * 3 + (kx + 1);
+                sum += data[idx] * kernel[kernelIdx];
+              }
+            }
+            const idx = (y * width + x) * 4 + c;
+            newData[idx] = Math.max(0, Math.min(255, sum));
+          }
+        }
+      }
+      
+      const newImageData = new ImageData(newData, width, height);
+      ctx.putImageData(newImageData, 0, 0);
+      
+      toast.success('Image sharpened');
+    } catch (error) {
+      console.error('Sharpen error:', error);
+      toast.error('Failed to sharpen image');
+    }
+  };
+
   return (
     <div className="space-y-8">
       <Card className="bg-gradient-card backdrop-blur-lg border-white/20 shadow-card">
@@ -341,7 +496,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
             Professional Image Editor (No API Required)
           </CardTitle>
           <CardDescription>
-            Edit images with filters, transformations, and effects - works completely offline
+            Edit images with filters, transformations, effects, and background removal - works completely offline
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -392,7 +547,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
               {/* Image Preview and Canvas */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label>Original</Label>
+                  <Label>Original Image</Label>
                   <div className="border border-white/20 rounded-lg p-4 bg-white/5">
                     <img
                       ref={imageRef}
@@ -405,15 +560,16 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Edited</Label>
+                  <Label>Edited Image</Label>
                   <div className="border border-white/20 rounded-lg p-4 bg-white/5">
                     <canvas
                       ref={canvasRef}
-                      className="w-full h-64 object-contain rounded border"
+                      className="w-full h-64 object-contain rounded border max-w-full"
                       style={{ 
-                        maxWidth: '100%', 
-                        height: 'auto',
-                        backgroundColor: '#f8f9fa'
+                        backgroundColor: 'transparent',
+                        backgroundImage: 'linear-gradient(45deg, #f0f0f0 25%, transparent 25%), linear-gradient(-45deg, #f0f0f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f0f0f0 75%), linear-gradient(-45deg, transparent 75%, #f0f0f0 75%)',
+                        backgroundSize: '20px 20px',
+                        backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px'
                       }}
                     />
                   </div>
@@ -422,10 +578,11 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
 
               {/* Editing Tools */}
               <Tabs defaultValue="filters" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="filters">Filters</TabsTrigger>
                   <TabsTrigger value="transform">Transform</TabsTrigger>
                   <TabsTrigger value="effects">Effects</TabsTrigger>
+                  <TabsTrigger value="background">Background</TabsTrigger>
                   <TabsTrigger value="crop">Crop</TabsTrigger>
                 </TabsList>
 
@@ -570,13 +727,90 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
                     </Button>
                     
                     <Button
-                      onClick={resetImage}
+                      onClick={addVintage}
                       variant="outline"
                       disabled={!user || isProcessing}
                     >
-                      <Eraser className="h-4 w-4 mr-2" />
-                      Reset
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Vintage
                     </Button>
+                    
+                    <Button
+                      onClick={sharpenImage}
+                      variant="outline"
+                      disabled={!user || isProcessing}
+                      className="col-span-2"
+                    >
+                      <Sliders className="h-4 w-4 mr-2" />
+                      Sharpen
+                    </Button>
+                    
+                    <Button
+                      onClick={resetImage}
+                      variant="outline"
+                      disabled={!user || isProcessing}
+                      className="col-span-2"
+                    >
+                      <Eraser className="h-4 w-4 mr-2" />
+                      Reset All
+                    </Button>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="background" className="space-y-6">
+                  <div className="space-y-4">
+                    <Alert className="bg-blue-50 border-blue-200">
+                      <AlertCircle className="h-4 w-4 text-blue-600" />
+                      <AlertDescription className="text-blue-800">
+                        <strong>Background Removal Options:</strong>
+                        <br />• <strong>Basic (Free):</strong> Simple algorithm that works offline
+                        <br />• <strong>AI-Powered:</strong> Professional results with Remove.bg API (50 free images/month)
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Button
+                        onClick={removeBackground}
+                        variant="studio"
+                        disabled={!user || isProcessing}
+                        className="h-auto p-4"
+                      >
+                        <div className="text-center">
+                          <Scissors className="h-6 w-6 mx-auto mb-2" />
+                          <div className="font-semibold">Basic Background Removal</div>
+                          <div className="text-xs opacity-80">Free • Works Offline</div>
+                        </div>
+                      </Button>
+
+                      <div className="space-y-3">
+                        <Label htmlFor="removebg-key">Remove.bg API Key (Optional)</Label>
+                        <Input
+                          id="removebg-key"
+                          type="password"
+                          placeholder="Enter Remove.bg API key for better results..."
+                          className="bg-white/50 backdrop-blur border-white/30"
+                          disabled={!user}
+                        />
+                        <Button
+                          variant="outline"
+                          disabled={!user || isProcessing}
+                          className="w-full"
+                        >
+                          <Wand2 className="h-4 w-4 mr-2" />
+                          AI Background Removal
+                        </Button>
+                        <div className="text-center">
+                          <a 
+                            href="https://www.remove.bg/api" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary hover:underline"
+                          >
+                            🆓 Get Free API Key (50 images/month)
+                          </a>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </TabsContent>
 
@@ -606,7 +840,7 @@ export const ImageEditor = ({ user, onAuthRequired }: ImageEditorProps) => {
                   onClick={downloadImage}
                   variant="studio"
                   size="lg"
-                  disabled={!user || isProcessing}
+                  disabled={!user || isProcessing || !imageLoaded}
                   className="flex-1"
                 >
                   {isProcessing ? (

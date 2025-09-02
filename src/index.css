@@ -173,11 +173,42 @@ All colors MUST be HSL.
     overflow: visible !important;
     white-space: nowrap !important;
     text-overflow: clip !important;
+    position: relative !important;
+    z-index: 1000 !important;
+    color: hsl(var(--primary)) !important;
+    background: var(--gradient-primary) !important;
+    background-clip: text !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
   }
   
   /* Prevent any element from hiding the logo */
   .navbar-brand * {
     position: relative !important;
     z-index: 102 !important;
+  }
+  
+  /* Enhanced logo visibility */
+  .navbar-brand {
+    position: relative !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    min-width: fit-content !important;
+  }
+  
+  /* Ensure navbar doesn't interfere */
+  nav {
+    position: relative !important;
+    z-index: 999 !important;
+  }
+  
+  /* Canvas styling for image editor */
+  .image-editor-canvas {
+    max-width: 100% !important;
+    height: auto !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 8px !important;
   }
 }
